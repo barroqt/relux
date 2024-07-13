@@ -5,13 +5,10 @@ import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
 
 contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
-    using Counters for Counters.Counter;
-
     IERC20 public usdcToken;
-    Counters.Counter private _tokenIds;
+    uint256 public listingCount;
 
     struct Listing {
         uint256 watchId;
@@ -55,8 +52,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     function createListing(uint256 watchId, uint256 price) external {
         require(price > 0, "Price must be greater than zero");
 
-        _tokenIds.increment();
-        uint256 newTokenId = _tokenIds.current();
+        listingCount++;
+        uint256 newTokenId = listingCount;
 
         _safeMint(msg.sender, newTokenId);
 
