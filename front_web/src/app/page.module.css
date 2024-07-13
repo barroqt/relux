@@ -1,0 +1,80 @@
+.main {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 100vh;
+}
+.mainTitle {
+  text-align: center;
+  padding-top: 20px;
+  letter-spacing: 2px;
+  color: #e74c3c;
+  background: #222;
+}
+.flexManifest > div {
+  flex: 1;
+  padding: 15px;
+}
+.flexManifest {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+}
+.manifest > div {
+  background: white;
+  border-radius: 50%;
+  padding: 15px;
+}
+.manifest > h3 {
+  text-align: center;
+  margin-top: 5px;
+}
+
+.selectChain {
+  padding: 10px;
+  text-align: center;
+  border: 1px solid white;
+  background: #0A0A0A;
+  width: 440px;
+}
+
+.selectChain option {
+  color: white;
+  font-weight: 600;
+}
+
+/* Mobile */
+@media (max-width: 700px) {
+  .content {
+    padding: 4rem;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    margin-bottom: 120px;
+    max-width: 320px;
+    text-align: center;
+  }
+
+  .main {
+    padding: 2rem;
+  }
+}
+
+/* Tablet and Smaller Desktop */
+@media (min-width: 701px) and (max-width: 1120px) {
+  .grid {
+    grid-template-columns: repeat(2, 50%);
+  }
+}
+
+
+@keyframes rotate {
+  from {
+    transform: rotate(360deg);
+  }
+  to {
+    transform: rotate(0deg);
+  }
+}
