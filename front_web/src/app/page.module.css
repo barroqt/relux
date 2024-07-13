@@ -36,7 +36,7 @@
   text-align: center;
   border: 1px solid white;
   background: #0A0A0A;
-  width: 440px;
+  min-width: 440px;
 }
 
 .selectChain option {

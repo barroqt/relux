@@ -11,12 +11,12 @@ type Props = {
 
 enum Route {
   HOME = "Home",
-  ACCOUNT = "Account",
+  //ACCOUNT = "Account",
 }
 
 const routes = {
   [Route.HOME]: "/",
-  [Route.ACCOUNT]: "/account",
+  /*[Route.ACCOUNT]: "/account",*/
 };
 
 const Navigation = (props: Props) => {

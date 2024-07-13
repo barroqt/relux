@@ -9,54 +9,43 @@ import { fromHex } from "viem";
 
 const Web3Context = React.createContext({
   loading: false,
-  loadingTx: false,
-  loadingNft: false,
-  loadingMint: false,
-  loadingBurn: false,
-  loadingTrades: false,
   loadingSwitch: false,
-  transactions: null,
-  trades: null,
-  getTransaction: (address: string) => { },
-  getNfts: () => { },
-  getTrades: () => { },
-  openTrade: (address: string, idToken: number, price: number) => { },
-  approveTrade: (address: string, price: number) => { },
-  executeTrade: (address: string, idTrace: number, value: number) => { },
-  cancelTrade: (address: string, id: number) => { },
-  actionMint: (address: string, typeToken: string) => { },
-  actionBurn: (address: string, typeToken: string) => { },
+  loadingCreateList: false,
+  loadingBuyWatch: false,
+  loadingCancelListing: false,
+  loadingGetListing: false,
+  loadingListings: false,
+  listings: null,
+  createListing: (id: string, price: number) => { },
+  buyWatch: (account: string, id: string) => { },
+  cancelListing: (account: string, id: string) => { },
+  getListing: (id: string) => { },
+  getAllListings: () => { },
   switchChain: (idChain: number) => {},
 });
 
-type Props = {
+type Props = {};
 
-};
+const apiBlockScout = {};
 
-const apiBlockScout = {
-}
-
-export const tradesEnum = {
-  'from': 0,
-  'item': 1,
+export const listingEnum = {
+  'watchId': 0,
+  'seller': 1,
   'price': 2,
-  'status': 3,
-  'id': 4,
+  'isSold': 3,
 };
 
 export const Web3ContextProvider = (props: Props) => {
   const [loading, setLoading] = useState(false);
-  const [loadingTx, setLoadingTx] = useState(false);
-  const [loadingNft, setLoadingNft] = useState(false);
-  const [loadingMint, setLoadingMint] = useState(false);
-  const [loadingBurn, setLoadingBurn] = useState(false);
-  const [loadingTrades, setLoadingTrades] = useState(false);
   const [loadingSwitch, setLoadingSwitch] = useState(false);
-  const [transactions, setTransactions] = useState(null);
-  const [trades, setTrades] = useState(null);
-  const [nfts, setNfts] = useState(null);
-
-  const setWatcherNFT = () => {
+  const [loadingCreateList, setLoadingCreateList] = useState(false);
+  const [loadingBuyWatch, setLoadingBuyWatch] = useState(false);
+  const [loadingCancelListing, setLoadingCancelListing] = useState(false);
+  const [loadingListings, setLoadingListings] = useState(false);
+  const [loadingGetListing, setLoadingGetListing] = useState(false);
+  const [listings, setListings] = useState(null);
+  
+  /*const setWatcherNFT = () => {
     console.count('run set Watched');
     return publicClient.watchContractEvent({
       address: config.LISKSEPOLIA.CONTRACT_NFT_ADDR as `0x${string}`,
@@ -82,7 +71,7 @@ export const Web3ContextProvider = (props: Props) => {
         await getNfts();
       },
     });
-  };
+  };*/
 
   /*useEffect(() => {
     console.log('init - hello context');
@@ -96,17 +85,132 @@ export const Web3ContextProvider = (props: Props) => {
     };
   }, []);*/
 
-  const getTransaction = async (address: string) => {
-    console.log('getTransaction');
+  const createListing = async (account: string, id: string, price: number) => {
+    console.log('createListing');
     try {
-      setLoadingTx(true);
-      const response = await fetch(apiBlockScout.transactionsAddr(address));
-      const responseTx = await response.json();
-      setTransactions(responseTx);
-      setLoadingTx(false);
-      return responseTx;
+      setLoadingCreateList(true);
+      const chains = config.chains;
+      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      
+      const { request } = await publicClient.simulateContract({
+        account,
+        address: marketplaceContract,
+        abi: ReluxMarketplace.abi,
+        functionName: 'createListing',
+        args: [id, price],
+      });
+      const write = await walletClient.writeContract(request);
+      setLoadingCreateList(false);
+      getAllListings();
     } catch (e) {
-      setLoadingTx(false);
+      setLoadingCreateList(false);
+      console.log(e)
+    }
+  }
+
+  const buyWatch = async (account: string, id: string) => {
+    console.log('buyWatch');
+    try {
+      setLoadingBuyWatch(true);
+      const chains = config.chains;
+      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      
+      const { request } = await publicClient.simulateContract({
+        account,
+        address: marketplaceContract,
+        abi: ReluxMarketplace.abi,
+        functionName: 'buyWatch',
+        args: [id],
+      });
+      const write = await walletClient.writeContract(request);
+      console.log({ write });
+      setLoadingBuyWatch(false);
+    } catch (e) {
+      setLoadingBuyWatch(false);
+      console.log(e)
+    }
+  }
+
+  const cancelListing = async (account: string, id: string) => {
+    console.log('cancelListing');
+    try {
+      setLoadingCancelListing(true);
+      const chains = config.chains;
+      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      
+      const { request } = await publicClient.simulateContract({
+        account,
+        address: marketplaceContract,
+        abi: ReluxMarketplace.abi,
+        functionName: 'cancelListing',
+        args: [id],
+      });
+      const write = await walletClient.writeContract(request);
+      console.log({ write });
+      setLoadingCancelListing(false);
+      getAllListings();
+    } catch (e) {
+      setLoadingCancelListing(false);
+      console.log(e)
+    }
+  }
+
+  const getListing = async (account: string, id: string) => {
+    console.log('getListing');
+    try {
+      setLoadingGetListing(true);
+      const chains = config.chains;
+      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+
+      const listing = await publicClient.readContract({
+        address: marketplaceContract,
+        abi: ReluxMarketplace.abi,
+        functionName: 'listings',
+        args: [id],
+      });
+
+      console.log({ listing });
+      setLoadingGetListing(false);
+    } catch (e) {
+      setLoadingGetListing(false);
+      console.log(e)
+    }
+  }
+
+  const getAllListings = async () => {
+    console.log('getAllListings');
+    try {
+      setLoadingListings(true);
+      const chains = config.chains;
+      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      const listingCount = await publicClient.readContract({
+        address: marketplaceContract,
+        abi: ReluxMarketplace.abi,
+        functionName: 'listingCount',
+      })
+      const count = parseInt(listingCount);
+      console.log({ count });
+      if (count) {
+        const newList = [];
+        for (let i = count; i > 0; i--) {
+          const trade = await publicClient.readContract({
+            address: marketplaceContract,
+            abi: ReluxMarketplace.abi,
+            functionName: 'listings',
+            args: [i],
+          });
+
+          if (trade && trade.length && trade[listingEnum.seller] != "0x0000000000000000000000000000000000000000") {
+            //trade[listingEnum.watchId] = i;
+            console.log({ trade });
+            newList.push(trade);
+          }
+        }
+        setListings(newList);
+      }
+      setLoadingListings(false);
+    } catch (e) {
+      setLoadingListings(false);
       console.log('error');
       console.log(e)
     }
@@ -116,7 +220,7 @@ export const Web3ContextProvider = (props: Props) => {
     console.log('getNfts');
     try {
       setLoadingNft(true);
-      const response = await fetch(apiBlockScout.nftList(config.LISKSEPOLIA.CONTRACT_NFT_ADDR));
+      const response = await fetch(apiBlockScout.nftList(config.chains.arbitrumSepolia.contract_marketplace));
       const responseNfts = await response.json();
       setNfts(responseNfts);
       setLoadingNft(false);
@@ -124,49 +228,6 @@ export const Web3ContextProvider = (props: Props) => {
       return responseNfts;
     } catch (e) {
       setLoadingNft(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
-  const actionMint = async (address: string, typeToken: string) => {
-    try {
-      setLoadingMint(true);
-      const marketplace = config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR;
-      console.log({ typeToken, marketplace });
-      const { request } = await publicClient.simulateContract({
-        account: address,
-        address: config.LISKSEPOLIA.CONTRACT_NFT_ADDR,
-        abi: NFT_TTS.abi,
-        functionName: 'mint',
-        args: [typeToken, marketplace],
-      });
-      const write = await walletClient.writeContract(request);
-      console.log({ write });
-      setLoadingMint(false);
-    } catch (e) {
-      setLoadingMint(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
-  const actionBurn = async (address: string, typeToken: string) => {
-    try {
-      setLoadingBurn(true);
-      console.log({ address, typeToken });
-      const { request } = await publicClient.simulateContract({
-        account: address,
-        address: config.LISKSEPOLIA.CONTRACT_NFT_ADDR,
-        abi: NFT_TTS.abi,
-        functionName: 'burn',
-        args: [typeToken, marketplace],
-      });
-      const write = await walletClient.writeContract(request);
-      console.log({ write });
-      setLoadingBurn(false);
-    } catch (e) {
-      setLoadingBurn(false);
       console.log('error');
       console.log(e)
     }
@@ -185,166 +246,23 @@ export const Web3ContextProvider = (props: Props) => {
     setLoadingSwitch(false);
   }
 
-  const getTrades = async () => {
-    try {
-      console.log('getTrades');
-      setLoadingTrades(true);
-      const tradeCounter = await publicClient.readContract({
-        address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR,
-        abi: Trade_TTS.abi,
-        functionName: 'tradeCounter',
-      })
-      const count = parseInt(tradeCounter);
-      console.log({ count });
-      if (count) {
-        const newTrades = [];
-        for (let i = count - 1; i >= 0; i--) {
-          const trade = await publicClient.readContract({
-            address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR,
-            abi: Trade_TTS.abi,
-            functionName: 'getTrade',
-            args: [i],
-          });
-          trade[tradesEnum.status] = fromHex(trade[tradesEnum.status], { size: 32, to: 'string' });
-
-          trade[tradesEnum.id] = i;
-          console.log({ trade });
-          newTrades.push(trade);
-        }
-        setTrades(newTrades);
-      }
-      setLoadingTrades(false);
-    } catch (e) {
-      setLoadingTrades(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
-  // Approve & Open
-  const openTrade = async (address: string, idToken: number, price: number) => {
-    try {
-      console.log('openTrade');
-      setLoadingTrades(true);
-      const { request } = await publicClient.simulateContract({
-        account: address,
-        address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR,
-        abi: Trade_TTS.abi,
-        functionName: 'openTrade',
-        args: [idToken, price],
-      });
-      const write = await walletClient.writeContract(request);
-
-      /*const results = await publicClient.multicall({
-        contracts: [
-          {
-            address: config.LISKSEPOLIA.CONTRACT_NFT_ADDR,
-            abi: NFT_TTS.abi,
-            functionName: 'approve',
-            args: [ config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR, idToken] 
-          },
-          {
-            address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR,
-            abi: Trade_TTS.abi,
-            functionName: 'openTrade',
-            args: [ idToken, price ] 
-          },
-        ]
-      });*/
-      // console.log({ results });
-    } catch (e) {
-      setLoadingTrades(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
-  const approveTrade = async (address: string, price: number) => {
-    try {
-      console.log('approveTrade');
-      setLoadingTrades(true);
-      const { request } = await publicClient.simulateContract({
-        account: address,
-        address: config.LISKSEPOLIA.CONTRACT_NATIVE_COIN,
-        abi: ERC20.abi,
-        functionName: 'approve',
-        args: [config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR, price],
-      });
-      /*const request = await walletClient.prepareTransactionRequest({ 
-        account: address,
-        to: config.LISKSEPOLIA.CONTRACT_NATIVE_COIN,
-        value: price
-      });*/
-      const write = await walletClient.writeContract(request);
-    } catch (e) {
-      setLoadingTrades(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
-  const executeTrade = async (address: string, idTrace: number, value: number) => {
-    try {
-      console.log('executeTrade', address, idTrace, value);
-      setLoadingTrades(true);
-      const { request } = await publicClient.simulateContract({
-        account: address,
-        address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR,
-        abi: Trade_TTS.abi,
-        functionName: 'executeTrade',
-        args: [idTrace],
-        value,
-      });
-      const write = await walletClient.writeContract(request);
-    } catch (e) {
-      setLoadingTrades(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
-  const cancelTrade = async (address: string, id: number) => {
-    try {
-      console.log('cancelTrade');
-      setLoadingTrades(true);
-      const { request } = await publicClient.simulateContract({
-        account: address,
-        address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR,
-        abi: Trade_TTS.abi,
-        functionName: 'cancelTrade',
-        args: [id],
-      });
-      const write = await walletClient.writeContract(request);
-    } catch (e) {
-      setLoadingTrades(false);
-      console.log('error');
-      console.log(e)
-    }
-  }
-
   return (
     <Web3Context.Provider
       value={{
-        loading,
-        loadingTx,
-        loadingNft,
-        loadingMint,
-        loadingBurn,
-        loadingTrades,
-        loadingSwitch,
-        transactions,
-        getTransaction,
-        nfts,
-        getNfts,
-        actionMint,
-        actionBurn,
-        trades,
-        getTrades,
-        openTrade,
-        approveTrade,
-        executeTrade,
-        cancelTrade,
-        switchChain,
+          loading,
+          loadingSwitch,
+          loadingCreateList,
+          loadingBuyWatch,
+          loadingCancelListing,
+          loadingGetListing,
+          loadingListings,
+          listings,
+          getAllListings,
+          createListing,
+          buyWatch,
+          cancelListing,
+          getListing,
+          switchChain,
       }}>
       {props.children}
     </Web3Context.Provider>

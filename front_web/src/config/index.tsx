@@ -4,6 +4,14 @@ const config = {
     websiteTitle: "Relux",
     websiteDescription: "Relux project @ ETHBrussels 2024",
     contactMail: "contact@mail.me",
+    chains: {
+        arbitrumSepolia: {
+            contract_marketplace: '0x19a87E91c1BE5650fa4f487A9BB8020DdC6bfBAD',
+        },
+        baseSepolia: {
+            contract_marketplace: '0x29F9a489df33fadce2e92d36e4098bc6B2aCe7E1',
+        },
+    }
 }
 
 export default config;

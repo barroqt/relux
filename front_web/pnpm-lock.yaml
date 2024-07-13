@@ -19,6 +19,7 @@ specifiers:
   pino-pretty: ^11.0.0
   react: ^18
   react-dom: ^18
+  react-responsive-carousel: ^3.2.23
   typescript: ^5
   viem: ^2.9.31
   wagmi: ^2.8.0
@@ -38,6 +39,7 @@ dependencies:
   pino-pretty: 11.0.0
   react: 18.2.0
   react-dom: 18.2.0_react@18.2.0
+  react-responsive-carousel: 3.2.23
   viem: 2.9.31_typescript@5.2.2
   wagmi: 2.8.0_h7b4uk6rc3o5lssyeifhjnzff4
   web3-utils: 4.2.3
@@ -5411,6 +5413,13 @@ packages:
       scheduler: 0.23.0
     dev: false
 
+  /react-easy-swipe/0.0.21:
+    resolution: {integrity: sha512-OeR2jAxdoqUMHIn/nS9fgreI5hSpgGoL5ezdal4+oO7YSSgJR8ga+PkYGJrSrJ9MKlPcQjMQXnketrD7WNmNsg==}
+    engines: {node: '>= 6'}
+    dependencies:
+      prop-types: 15.8.1
+    dev: false
+
   /react-i18next/13.5.0_spyi3zqm3bqfobczid2f6jym6y:
     resolution: {integrity: sha512-CFJ5NDGJ2MUyBohEHxljOq/39NQ972rh1ajnadG9BjTk+UXbHLq4z5DKEbEQBDoIhUmmbuS/fIMJKo6VOax1HA==}
     peerDependencies:
@@ -5447,6 +5456,14 @@ packages:
       escape-string-regexp: 2.0.0
       invariant: 2.2.4
       react: 18.2.0
+    dev: false
+
+  /react-responsive-carousel/3.2.23:
+    resolution: {integrity: sha512-pqJLsBaKHWJhw/ItODgbVoziR2z4lpcJg+YwmRlSk4rKH32VE633mAtZZ9kDXjy4wFO+pgUZmDKPsPe1fPmHCg==}
+    dependencies:
+      classnames: 2.3.2
+      prop-types: 15.8.1
+      react-easy-swipe: 0.0.21
     dev: false
 
   /react-transition-group/4.4.5_biqbaboplfbrettd7655fr4n2y:
