@@ -14,7 +14,7 @@ module.exports = {
       url: process.env.ZIRCUIT_RPC_URL,
       accounts: [PRIVATE_KEY],
     },
-    scrollTestnet: {
+    scrollSepolia: {
       url: process.env.SCROLL_TESTNET_RPC_URL,
       accounts: [PRIVATE_KEY],
     },
