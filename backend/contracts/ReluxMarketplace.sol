@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
 
-contract ReluxMarketplace is Ownable, ReentrancyGuard {
+contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
+    using Counters for Counters.Counter;
+
     IERC20 public usdcToken;
+    Counters.Counter private _tokenIds;
 
     struct Listing {
         uint256 watchId;
@@ -18,41 +23,44 @@ contract ReluxMarketplace is Ownable, ReentrancyGuard {
     }
 
     mapping(uint256 => Listing) public listings;
-    uint256 public listingCount;
     uint256 public constant DISPUTE_PERIOD = 3 days;
     uint256 public constant PLATFORM_FEE_PERCENT = 2; // 2% platform fee
 
-    event WatchListed(uint256 indexed listingId, uint256 indexed watchId, address seller, uint256 price);
-    event WatchSold(uint256 indexed listingId, uint256 indexed watchId, address buyer, uint256 price);
-    event ListingDisputed(uint256 indexed listingId, address disputer);
-    event ListingCancelled(uint256 indexed listingId);
+    event WatchListed(uint256 indexed tokenId, uint256 indexed watchId, address seller, uint256 price);
+    event WatchSold(uint256 indexed tokenId, uint256 indexed watchId, address buyer, uint256 price);
+    event ListingDisputed(uint256 indexed tokenId, address disputer);
+    event ListingCancelled(uint256 indexed tokenId);
 
-    modifier notSold(uint256 listingId) {
-        require(!listings[listingId].isSold, "Product already sold");
+    modifier notSold(uint256 tokenId) {
+        require(!listings[tokenId].isSold, "Product already sold");
         _;
     }
 
-    modifier notDisputed(uint256 listingId) {
-        require(!listings[listingId].isDisputed, "Listing is disputed");
+    modifier notDisputed(uint256 tokenId) {
+        require(!listings[tokenId].isDisputed, "Listing is disputed");
         _;
     }
 
-    modifier disputePeriodOver(uint256 listingId) {
-        if (listings[listingId].isDisputed) {
-            require(block.timestamp > listings[listingId].listingTime + DISPUTE_PERIOD, "Dispute period not over");
+    modifier disputePeriodOver(uint256 tokenId) {
+        if (listings[tokenId].isDisputed) {
+            require(block.timestamp > listings[tokenId].listingTime + DISPUTE_PERIOD, "Dispute period not over");
         }
         _;
     }
 
-    constructor(address _usdcToken) {
+    constructor(address _usdcToken) ERC721("ReluxWatchListing", "RWL") {
         usdcToken = IERC20(_usdcToken);
     }
 
     function createListing(uint256 watchId, uint256 price) external {
         require(price > 0, "Price must be greater than zero");
 
-        listingCount++;
-        listings[listingCount] = Listing({
+        _tokenIds.increment();
+        uint256 newTokenId = _tokenIds.current();
+
+        _safeMint(msg.sender, newTokenId);
+
+        listings[newTokenId] = Listing({
             watchId: watchId,
             seller: payable(msg.sender),
             price: price,
@@ -61,17 +69,18 @@ contract ReluxMarketplace is Ownable, ReentrancyGuard {
             isSold: false
         });
 
-        emit WatchListed(listingCount, watchId, msg.sender, price);
+        emit WatchListed(newTokenId, watchId, msg.sender, price);
     }
 
-    function buyWatch(uint256 listingId)
+    function buyWatch(uint256 tokenId)
         external
         nonReentrant
-        notSold(listingId)
-        notDisputed(listingId)
-        disputePeriodOver(listingId)
+        notSold(tokenId)
+        notDisputed(tokenId)
+        disputePeriodOver(tokenId)
     {
-        Listing storage listing = listings[listingId];
+        require(_exists(tokenId), "Listing does not exist");
+        Listing storage listing = listings[tokenId];
 
         uint256 platformFee = (listing.price * PLATFORM_FEE_PERCENT) / 100;
         uint256 sellerAmount = listing.price - platformFee;
@@ -81,34 +90,47 @@ contract ReluxMarketplace is Ownable, ReentrancyGuard {
         require(usdcToken.transfer(owner(), platformFee), "Platform fee transfer failed");
 
         listing.isSold = true;
+        _transfer(listing.seller, msg.sender, tokenId);
 
-        emit WatchSold(listingId, listing.watchId, msg.sender, listing.price);
+        emit WatchSold(tokenId, listing.watchId, msg.sender, listing.price);
     }
 
-    // TODO: dispute system not ready
-    function disputeListing(uint256 listingId) external notSold(listingId) notDisputed(listingId) {
-        Listing storage listing = listings[listingId];
-        require(block.timestamp <= listing.listingTime + DISPUTE_PERIOD, "Dispute period over");
+    function disputeListing(uint256 tokenId)
+        external
+        notSold(tokenId)
+        notDisputed(tokenId)
+        disputePeriodOver(tokenId)
+    {
+        require(_exists(tokenId), "Listing does not exist");
+        Listing storage listing = listings[tokenId];
 
         listing.isDisputed = true;
 
-        emit ListingDisputed(listingId, msg.sender);
+        emit ListingDisputed(tokenId, msg.sender);
     }
 
-    function cancelListing(uint256 listingId) external notSold(listingId) notDisputed(listingId) {
-        Listing storage listing = listings[listingId];
-        require(msg.sender == listing.seller, "Only seller can cancel");
+    function cancelListing(uint256 tokenId) external notSold(tokenId) notDisputed(tokenId) {
+        require(_exists(tokenId), "Listing does not exist");
+        require(ownerOf(tokenId) == msg.sender, "Only owner can cancel");
 
-        delete listings[listingId];
+        delete listings[tokenId];
+        _burn(tokenId);
 
-        emit ListingCancelled(listingId);
+        emit ListingCancelled(tokenId);
     }
 
-    function getListing(uint256 listingId) external view returns (Listing memory) {
-        return listings[listingId];
+    function getListing(uint256 tokenId) external view returns (Listing memory) {
+        require(_exists(tokenId), "Listing does not exist");
+        return listings[tokenId];
     }
 
     function updateUSDCToken(address newUSDCToken) external onlyOwner {
         usdcToken = IERC20(newUSDCToken);
+    }
+
+    function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal override {
+        super._beforeTokenTransfer(from, to, tokenId, batchSize);
+        require(!listings[tokenId].isSold, "Cannot transfer sold listing");
+        require(!listings[tokenId].isDisputed, "Cannot transfer disputed listing");
     }
 }
