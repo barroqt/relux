@@ -139,7 +139,7 @@ export default function Home() {
 
         {loadingListings && <p>Loading listings...</p>}
         {!loadingListings && !listings && <p>No listing</p>}
-        {!loadingListings && !listings && <button style={{ maxWidth: '60px' }} onClick={() => getAllListings(currentChain)}>Reload</button>}
+        {!loadingListings && address && <button style={{ maxWidth: '60px' }} onClick={() => getAllListings(currentChain)}>Reload</button>}
         {!loadingListings && address && listings && 
           <div>
             <h3 style={{ fontWeight: '400', marginTop: '15px' }}>Listings</h3>
