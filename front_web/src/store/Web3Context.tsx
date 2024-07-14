@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import ReluxMarketplace from '@/contracts/ReluxMarketplace.json';
+import UsdcDeployed from '@/contracts/usdc.json';
+import Erc20Deployed from '@/contracts/ERC20.json';
 
 import config from "../config";
-import { publicClient, walletClient } from "@/config/client";
+import { chainsList, publicClient, walletClient } from "@/config/client";
 import { fromHex } from "viem";
 
 const Web3Context = React.createContext({
@@ -16,24 +18,31 @@ const Web3Context = React.createContext({
   loadingGetListing: false,
   loadingListings: false,
   listings: null,
-  createListing: (id: string, price: number) => { },
-  buyWatch: (account: string, id: string) => { },
-  cancelListing: (account: string, id: string) => { },
+  createListing: (id: string, price: number, idChain: number) => { },
+  buyWatch: (account: string, id: string, idChain: number) => { },
+  cancelListing: (account: string, id: string, idChain: number) => { },
   getListing: (id: string) => { },
-  getAllListings: () => { },
-  switchChain: (idChain: number) => {},
+  getAllListings: (idChain: number) => { },
+  switchChain: (oldChain: number, idChain: number) => {},
+  approveUsdc: (account: string, to: string, price: number, idChain: number) => {},
 });
 
 type Props = {};
-
-const apiBlockScout = {};
 
 export const listingEnum = {
   'watchId': 0,
   'seller': 1,
   'price': 2,
-  'isSold': 3,
+  'listingTime': 3,
+  'isDisputed': 4,
+  'isSold': 5,
+  'tokenId': 6,//added in web3Context
 };
+
+const apiBlockScout = {
+  transactionsAddr: (address: string) => `https://base-sepolia.blockscout.com/api/v2/addresses/${address}/transactions?filter=to%20%7C%20from`,
+  nftList: (address: string) => `https://base-sepolia.blockscout.com/api/v2/tokens/${address}/instances`,
+}
 
 export const Web3ContextProvider = (props: Props) => {
   const [loading, setLoading] = useState(false);
@@ -47,7 +56,7 @@ export const Web3ContextProvider = (props: Props) => {
   
   /*const setWatcherNFT = () => {
     console.count('run set Watched');
-    return publicClient.watchContractEvent({
+    return chains.publicClient.watchContractEvent({
       address: config.LISKSEPOLIA.CONTRACT_NFT_ADDR as `0x${string}`,
       abi: NFT_TTS.abi,
       eventName: 'Transfer',
@@ -59,7 +68,7 @@ export const Web3ContextProvider = (props: Props) => {
 
   const setWatcherTrade = () => {
     console.count('run set Watched');
-    return publicClient.watchContractEvent({
+    return chains.publicClient.watchContractEvent({
       address: config.LISKSEPOLIA.CONTRACT_TRADE_TTS_ADDR as `0x${string}`,
       abi: Trade_TTS.abi,
       eventName: 'TradeStatusChange',
@@ -85,44 +94,44 @@ export const Web3ContextProvider = (props: Props) => {
     };
   }, []);*/
 
-  const createListing = async (account: string, id: string, price: number) => {
-    console.log('createListing');
+  const createListing = async (account: string, id: string, price: number, idChain: number) => {
+    console.log('createListing', idChain);
     try {
       setLoadingCreateList(true);
-      const chains = config.chains;
-      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      const chains = chainsList[idChain];
+      const marketplaceContract = chains.contract_marketplace;
       
-      const { request } = await publicClient.simulateContract({
+      const { request } = await chains.publicClient.simulateContract({
         account,
         address: marketplaceContract,
         abi: ReluxMarketplace.abi,
         functionName: 'createListing',
         args: [id, price],
       });
-      const write = await walletClient.writeContract(request);
+      const write = await chains.walletClient.writeContract(request);
       setLoadingCreateList(false);
-      getAllListings();
+      getAllListings(idChain);
     } catch (e) {
       setLoadingCreateList(false);
       console.log(e)
     }
   }
 
-  const buyWatch = async (account: string, id: string) => {
-    console.log('buyWatch');
+  const buyWatch = async (account: string, id: string, idChain: number) => {
+    console.log('buyWatch', idChain);
     try {
       setLoadingBuyWatch(true);
-      const chains = config.chains;
-      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      const chains = chainsList[idChain];
+      const marketplaceContract = chains.contract_marketplace;
       
-      const { request } = await publicClient.simulateContract({
+      const { request } = await chains.publicClient.simulateContract({
         account,
         address: marketplaceContract,
         abi: ReluxMarketplace.abi,
         functionName: 'buyWatch',
         args: [id],
       });
-      const write = await walletClient.writeContract(request);
+      const write = await chains.walletClient.writeContract(request);
       console.log({ write });
       setLoadingBuyWatch(false);
     } catch (e) {
@@ -131,38 +140,38 @@ export const Web3ContextProvider = (props: Props) => {
     }
   }
 
-  const cancelListing = async (account: string, id: string) => {
-    console.log('cancelListing');
+  const cancelListing = async (account: string, id: string, idChain: number) => {
+    console.log('cancelListing', account, id, idChain);
     try {
       setLoadingCancelListing(true);
-      const chains = config.chains;
-      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      const chains = chainsList[idChain];
+      const marketplaceContract = chains.contract_marketplace;
       
-      const { request } = await publicClient.simulateContract({
+      const { request } = await chains.publicClient.simulateContract({
         account,
         address: marketplaceContract,
         abi: ReluxMarketplace.abi,
         functionName: 'cancelListing',
         args: [id],
       });
-      const write = await walletClient.writeContract(request);
+      const write = await chains.walletClient.writeContract(request);
       console.log({ write });
       setLoadingCancelListing(false);
-      getAllListings();
+      getAllListings(idChain);
     } catch (e) {
       setLoadingCancelListing(false);
       console.log(e)
     }
   }
 
-  const getListing = async (account: string, id: string) => {
-    console.log('getListing');
+  const getListing = async (account: string, id: string, idChain: number) => {
+    console.log('getListing', idChain);
     try {
       setLoadingGetListing(true);
-      const chains = config.chains;
-      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
+      const chains = chainsList[idChain];
+      const marketplaceContract = chains.contract_marketplace;
 
-      const listing = await publicClient.readContract({
+      const listing = await chains.publicClient.readContract({
         address: marketplaceContract,
         abi: ReluxMarketplace.abi,
         functionName: 'listings',
@@ -177,13 +186,13 @@ export const Web3ContextProvider = (props: Props) => {
     }
   }
 
-  const getAllListings = async () => {
-    console.log('getAllListings');
+  const getAllListings = async (idChain: number) => {
+    console.log('getAllListings', idChain);
     try {
       setLoadingListings(true);
-      const chains = config.chains;
-      const marketplaceContract = chains.arbitrumSepolia.contract_marketplace;
-      const listingCount = await publicClient.readContract({
+      const chains = chainsList[idChain];
+      const marketplaceContract = chains.contract_marketplace;
+      const listingCount = await chains.publicClient.readContract({
         address: marketplaceContract,
         abi: ReluxMarketplace.abi,
         functionName: 'listingCount',
@@ -193,7 +202,7 @@ export const Web3ContextProvider = (props: Props) => {
       if (count) {
         const newList = [];
         for (let i = count; i > 0; i--) {
-          const trade = await publicClient.readContract({
+          const trade = await chains.publicClient.readContract({
             address: marketplaceContract,
             abi: ReluxMarketplace.abi,
             functionName: 'listings',
@@ -201,7 +210,7 @@ export const Web3ContextProvider = (props: Props) => {
           });
 
           if (trade && trade.length && trade[listingEnum.seller] != "0x0000000000000000000000000000000000000000") {
-            //trade[listingEnum.watchId] = i;
+            trade[listingEnum.tokenId] = i;
             console.log({ trade });
             newList.push(trade);
           }
@@ -220,7 +229,7 @@ export const Web3ContextProvider = (props: Props) => {
     console.log('getNfts');
     try {
       setLoadingNft(true);
-      const response = await fetch(apiBlockScout.nftList(config.chains.arbitrumSepolia.contract_marketplace));
+      const response = await fetch(apiBlockScout.nftList(chainsList.arbitrumSepolia.contract_nft));
       const responseNfts = await response.json();
       setNfts(responseNfts);
       setLoadingNft(false);
@@ -233,17 +242,38 @@ export const Web3ContextProvider = (props: Props) => {
     }
   }
 
-  const switchChain = async (idChain: number) => {
+  const switchChain = async (oldChain: number, idChain: number) => {
     try {
-      console.log('switchChain');
-      if (walletClient && !loadingSwitch) {
+      console.log('switchChain', idChain);
+      const chains = chainsList[oldChain];
+      if (chains.walletClient && !loadingSwitch && idChain) {
         setLoadingSwitch(true);
-        await walletClient.switchChain({ id: idChain });
+        await chains.walletClient.switchChain({ id: idChain });
+        setListings(null);
+        getAllListings(idChain);
       }
     } catch (e) {
       console.log(e);
     }
     setLoadingSwitch(false);
+  }
+
+  const approveUsdc = async (account: string, to: string, price: number, idChain: number) => {
+    try {
+      console.log('approve');
+      const chains = chainsList[idChain];
+      const usdcContract = chains.contract_usdc;
+      const { request } = await chains.publicClient.simulateContract({
+        account,
+        address: usdcContract,
+        abi: Erc20Deployed.abi,
+        functionName: 'approve',
+        args: [account, price],
+      });
+      console.log(request);
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   return (
@@ -263,6 +293,7 @@ export const Web3ContextProvider = (props: Props) => {
           cancelListing,
           getListing,
           switchChain,
+          approveUsdc,
       }}>
       {props.children}
     </Web3Context.Provider>
