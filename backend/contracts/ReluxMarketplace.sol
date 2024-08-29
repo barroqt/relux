@@ -28,19 +28,32 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     event ListingDisputed(uint256 indexed tokenId, address disputer);
     event ListingCancelled(uint256 indexed tokenId);
 
+    // Custom errors
+    error ProductAlreadySold();
+    error ListingInDisputedState();
+    error DisputePeriodNotOver();
+    error PriceMustBeGreaterThanZero();
+    error ListingDoesNotExist();
+    error PaymentFailed();
+    error TransferToSellerFailed();
+    error PlatformFeeTransferFailed();
+    error OnlyOwnerCanCancel();
+    error CannotTransferSoldListing();
+    error CannotTransferDisputedListing();
+
     modifier notSold(uint256 tokenId) {
-        require(!listings[tokenId].isSold, "Product already sold");
+        if (listings[tokenId].isSold) revert ProductAlreadySold();
         _;
     }
 
     modifier notDisputed(uint256 tokenId) {
-        require(!listings[tokenId].isDisputed, "Listing is disputed");
+        if (listings[tokenId].isDisputed) revert ListingInDisputedState();
         _;
     }
 
     modifier disputePeriodOver(uint256 tokenId) {
         if (listings[tokenId].isDisputed) {
-            require(block.timestamp > listings[tokenId].listingTime + DISPUTE_PERIOD, "Dispute period not over");
+            if (block.timestamp <= listings[tokenId].listingTime + DISPUTE_PERIOD) revert DisputePeriodNotOver();
         }
         _;
     }
@@ -50,7 +63,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     }
 
     function createListing(uint256 watchId, uint256 price) external {
-        require(price > 0, "Price must be greater than zero");
+        if (price <= 0) revert PriceMustBeGreaterThanZero();
 
         listingCount++;
         uint256 newTokenId = listingCount;
@@ -76,15 +89,15 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
         notDisputed(tokenId)
         disputePeriodOver(tokenId)
     {
-        require(_exists(tokenId), "Listing does not exist");
+        if (!_exists(tokenId)) revert ListingDoesNotExist();
         Listing storage listing = listings[tokenId];
 
         uint256 platformFee = (listing.price * PLATFORM_FEE_PERCENT) / 100;
         uint256 sellerAmount = listing.price - platformFee;
 
-        require(usdcToken.transferFrom(msg.sender, address(this), listing.price), "Payment failed");
-        require(usdcToken.transfer(listing.seller, sellerAmount), "Transfer to seller failed");
-        require(usdcToken.transfer(owner(), platformFee), "Platform fee transfer failed");
+        if (!usdcToken.transferFrom(msg.sender, address(this), listing.price)) revert PaymentFailed();
+        if (!usdcToken.transfer(listing.seller, sellerAmount)) revert TransferToSellerFailed();
+        if (!usdcToken.transfer(owner(), platformFee)) revert PlatformFeeTransferFailed();
 
         listing.isSold = true;
         _transfer(listing.seller, msg.sender, tokenId);
@@ -98,7 +111,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
         notDisputed(tokenId)
         disputePeriodOver(tokenId)
     {
-        require(_exists(tokenId), "Listing does not exist");
+        if (!_exists(tokenId)) revert ListingDoesNotExist();
         Listing storage listing = listings[tokenId];
 
         listing.isDisputed = true;
@@ -107,8 +120,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     }
 
     function cancelListing(uint256 tokenId) external notSold(tokenId) notDisputed(tokenId) {
-        require(_exists(tokenId), "Listing does not exist");
-        require(ownerOf(tokenId) == msg.sender, "Only owner can cancel");
+        if (!_exists(tokenId)) revert ListingDoesNotExist();
+        if (ownerOf(tokenId) != msg.sender) revert OnlyOwnerCanCancel();
 
         delete listings[tokenId];
         _burn(tokenId);
@@ -117,7 +130,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     }
 
     function getListing(uint256 tokenId) external view returns (Listing memory) {
-        require(_exists(tokenId), "Listing does not exist");
+        if (!_exists(tokenId)) revert ListingDoesNotExist();
         return listings[tokenId];
     }
 
@@ -127,7 +140,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
 
     function _beforeTokenTransfer(address from, address to, uint256 tokenId, uint256 batchSize) internal override {
         super._beforeTokenTransfer(from, to, tokenId, batchSize);
-        require(!listings[tokenId].isSold, "Cannot transfer sold listing");
-        require(!listings[tokenId].isDisputed, "Cannot transfer disputed listing");
+        if (listings[tokenId].isSold) revert CannotTransferSoldListing();
+        if (listings[tokenId].isDisputed) revert CannotTransferDisputedListing();
     }
 }
