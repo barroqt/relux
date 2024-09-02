@@ -10,20 +10,18 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     IERC20 public usdcToken;
     uint256 public listingCount;
 
-    // TODO: Implement this enum instead of booleans for status
-    // enum ListingStatus {
-    //     Active,
-    //     Sold,
-    //     Disputed
-    // }
+    enum ListingStatus {
+        Active,
+        Sold,
+        Disputed
+    }
 
     struct Listing {
         uint256 productId;
         address payable seller;
         uint256 price;
         uint256 listingTime;
-        bool isDisputed;
-        bool isSold;
+        ListingStatus status;
         bool isCertified;
         address partner;
     }
@@ -72,17 +70,17 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
                                MODIFIERS
     //////////////////////////////////////////////////////////////*/
     modifier notSold(uint256 tokenId) {
-        if (listings[tokenId].isSold) revert ProductAlreadySold();
+        if (listings[tokenId].status == ListingStatus.Sold) revert ProductAlreadySold();
         _;
     }
 
     modifier notDisputed(uint256 tokenId) {
-        if (listings[tokenId].isDisputed) revert ListingInDisputedState();
+        if (listings[tokenId].status == ListingStatus.Disputed) revert ListingInDisputedState();
         _;
     }
 
     modifier disputePeriodOver(uint256 tokenId) {
-        if (listings[tokenId].isDisputed) {
+        if (listings[tokenId].status == ListingStatus.Disputed) {
             if (block.timestamp <= listings[tokenId].listingTime + DISPUTE_PERIOD) revert DisputePeriodNotOver();
         }
         _;
@@ -122,8 +120,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
             seller: payable(msg.sender),
             price: _price,
             listingTime: block.timestamp,
-            isDisputed: false,
-            isSold: false,
+            status: ListingStatus.Active,
             isCertified: true,
             partner: certifiedProductsByPartners[_productId]
         });
@@ -144,8 +141,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
 
         Listing storage listing = listings[_tokenId];
 
-        if (listing.isSold) revert ProductAlreadySold();
-        if (listing.isDisputed) revert ListingInDisputedState();
+        if (listing.status == ListingStatus.Sold) revert ProductAlreadySold();
+        if (listing.status == ListingStatus.Disputed) revert ListingInDisputedState();
 
         uint256 platformFee = (listing.price * PLATFORM_FEE_PERCENT) / 100;
         uint256 sellerAmount = listing.price - platformFee;
@@ -154,7 +151,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
         if (!usdcToken.transfer(listing.seller, sellerAmount)) revert TransferToSellerFailed();
         if (!usdcToken.transfer(owner(), platformFee)) revert PlatformFeeTransferFailed();
 
-        listing.isSold = true;
+        listing.status = ListingStatus.Sold;
         _transfer(listing.seller, msg.sender, _tokenId);
 
         emit ProductSold(_tokenId, listing.productId, msg.sender, listing.price);
@@ -169,7 +166,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
         if (!_exists(_tokenId)) revert ListingDoesNotExist();
         Listing storage listing = listings[_tokenId];
 
-        listing.isDisputed = true;
+        listing.status = ListingStatus.Disputed;
 
         emit ListingDisputed(_tokenId, msg.sender);
     }
@@ -227,8 +224,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     //////////////////////////////////////////////////////////////*/
     function _beforeTokenTransfer(address _from, address _to, uint256 _tokenId, uint256 _batchSize) internal override {
         super._beforeTokenTransfer(_from, _to, _tokenId, _batchSize);
-        if (listings[_tokenId].isSold) revert CannotTransferSoldListing();
-        if (listings[_tokenId].isDisputed) revert CannotTransferDisputedListing();
+        if (listings[_tokenId].status == ListingStatus.Sold) revert CannotTransferSoldListing();
+        if (listings[_tokenId].status == ListingStatus.Disputed) revert CannotTransferDisputedListing();
     }
 
     /*//////////////////////////////////////////////////////////////
