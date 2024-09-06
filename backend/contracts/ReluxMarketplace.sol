@@ -34,6 +34,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     mapping(uint256 => Product) public products;
     mapping(uint256 => Listing) public listings;
     mapping(address => bool) public authorizedPartners;
+    mapping(uint256 => uint256) public productToListingId;
 
     uint256 public constant DISPUTE_PERIOD = 3 days;
     uint256 public constant PLATFORM_FEE_PERCENT = 2; // 2% platform fee
@@ -65,6 +66,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     error UnauthorizedPartner();
     error UnauthorizedCaller();
     error NotProductOwner();
+    error ProductAlreadyListed();
+    error ListingNotActive();
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -103,6 +106,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
 
     function createListing(uint256 _productId, uint256 _price) external onlyProductOwner(_productId) {
         if (_price <= 0) revert PriceMustBeGreaterThanZero();
+        if (productToListingId[_productId] != 0) revert ProductAlreadyListed();
 
         listingCount++;
         uint256 newListingId = listingCount;
@@ -115,12 +119,14 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
             status: ListingStatus.Active
         });
 
+        productToListingId[_productId] = newListingId;
+
         emit ProductListed(newListingId, _productId, msg.sender, _price);
     }
 
     function buyProduct(uint256 _listingId) external nonReentrant {
         Listing storage listing = listings[_listingId];
-        if (listing.status != ListingStatus.Active) revert ProductAlreadySold();
+        if (listing.status != ListingStatus.Active) revert ListingNotActive();
 
         uint256 platformFee = (listing.price * PLATFORM_FEE_PERCENT) / 100;
         uint256 sellerAmount = listing.price - platformFee;
@@ -133,6 +139,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
         uint256 productId = listing.productId;
         _transfer(listing.seller, msg.sender, productId);
         products[productId].owner = msg.sender;
+        delete productToListingId[productId];
 
         emit ProductSold(_listingId, productId, msg.sender, listing.price);
     }
@@ -149,10 +156,11 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
 
     function cancelListing(uint256 _listingId) external {
         Listing storage listing = listings[_listingId];
-        if (listing.status != ListingStatus.Active) revert ProductAlreadySold();
+        if (listing.status != ListingStatus.Active) revert ListingNotActive();
         if (listing.seller != msg.sender) revert OnlyOwnerCanCancel();
 
         delete listings[_listingId];
+        delete productToListingId[listing.productId];
 
         emit ListingCancelled(_listingId);
     }
@@ -168,22 +176,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard {
     }
 
     /*//////////////////////////////////////////////////////////////
-                           INTERNAL FUNCTIONS
-    //////////////////////////////////////////////////////////////*/
-    function _beforeTokenTransfer(address _from, address _to, uint256 _tokenId, uint256 _batchSize) internal override {
-        super._beforeTokenTransfer(_from, _to, _tokenId, _batchSize);
-
-        uint256 listingId = productToListingId[_tokenId];
-        if (listingId != 0) {
-            ListingStatus status = listings[listingId].status;
-            if (status == ListingStatus.Active) revert CannotTransferListedProduct();
-            if (status == ListingStatus.Disputed) revert CannotTransferDisputedProduct();
-        }
-    }
-    /*//////////////////////////////////////////////////////////////
                                 GETTERS
     //////////////////////////////////////////////////////////////*/
-
     function getProduct(uint256 _productId) external view returns (Product memory) {
         if (_productId == 0 || _productId > productCount) revert ProductDoesNotExist();
         return products[_productId];
