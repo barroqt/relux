@@ -11,6 +11,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
     IERC20 public usdcToken;
     uint256 public productCount;
     uint256 public listingCount;
+    uint256 public minListingPrice;
+    uint256 public maxListingPrice;
 
     enum ListingStatus {
         Active,
@@ -57,7 +59,6 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
     error ProductAlreadySold();
     error ListingInDisputedState();
     error DisputePeriodNotOver();
-    error PriceMustBeGreaterThanZero();
     error ListingDoesNotExist();
     error ProductDoesNotExist();
     error PaymentFailed();
@@ -69,6 +70,9 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
     error NotProductOwner();
     error ProductAlreadyListed();
     error ListingNotActive();
+    error PriceBelowMinimum(uint256 price, uint256 minPrice);
+    error PriceAboveMaximum(uint256 price, uint256 maxPrice);
+    error ZeroAddress();
 
     /*//////////////////////////////////////////////////////////////
                                MODIFIERS
@@ -87,6 +91,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
                                CONSTRUCTOR
     //////////////////////////////////////////////////////////////*/
     constructor(address _usdcToken) ERC721("ReluxProduct", "RLP") {
+        if (_usdcToken == address(0)) revert ZeroAddress();
         usdcToken = IERC20(_usdcToken);
     }
 
@@ -94,6 +99,7 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
                            EXTERNAL FUNCTIONS
     //////////////////////////////////////////////////////////////*/
     function certifyPurchase(address _buyer) external onlyAuthorizedPartner whenNotPaused {
+        if (_buyer == address(0)) revert ZeroAddress();
         productCount++;
         uint256 newProductId = productCount;
 
@@ -106,7 +112,8 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
     }
 
     function createListing(uint256 _productId, uint256 _price) external onlyProductOwner(_productId) whenNotPaused {
-        if (_price <= 0) revert PriceMustBeGreaterThanZero();
+        if (_price < minListingPrice) revert PriceBelowMinimum(_price, minListingPrice);
+        if (_price > maxListingPrice) revert PriceAboveMaximum(_price, maxListingPrice);
         if (productToListingId[_productId] != 0) revert ProductAlreadyListed();
 
         listingCount++;
@@ -170,13 +177,31 @@ contract ReluxMarketplace is ERC721, Ownable, ReentrancyGuard, Pausable {
     }
 
     function authorizePartner(address _partner) external onlyOwner {
+        if (_partner == address(0)) revert ZeroAddress();
         authorizedPartners[_partner] = true;
         emit PartnerAuthorized(_partner);
     }
 
     function deauthorizePartner(address _partner) external onlyOwner {
+        if (_partner == address(0)) revert ZeroAddress();
         authorizedPartners[_partner] = false;
         emit PartnerDeauthorized(_partner);
+    }
+
+    /*//////////////////////////////////////////////////////////////
+                                SETTERS
+    //////////////////////////////////////////////////////////////*/
+    function setUSDCToken(address _newUSDCToken) external onlyOwner {
+        if (_newUSDCToken == address(0)) revert ZeroAddress();
+        usdcToken = IERC20(_newUSDCToken);
+    }
+
+    function setMinListingPrice(uint256 _minListingPrice) external onlyOwner {
+        minListingPrice = _minListingPrice;
+    }
+
+    function setMaxListingPrice(uint256 _maxListingPrice) external onlyOwner {
+        maxListingPrice = _maxListingPrice;
     }
 
     /*//////////////////////////////////////////////////////////////
