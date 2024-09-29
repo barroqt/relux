@@ -1,15 +1,12 @@
 import localFont from "next/font/local";
+import { Encode_Sans_Condensed } from "next/font/google"; // Import the Google Font
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
+// Importing the Google Font: Encode Sans Condensed
+const encodeSansCondensed = Encode_Sans_Condensed({
+  weight: ["400", "700"], // You can specify the weights you want to use
+  subsets: ["latin"], // You can adjust the subsets if needed
+  variable: "--font-encode-sans-condensed",
 });
 
 export const metadata = {
@@ -21,7 +18,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={` ${encodeSansCondensed.className} antialiased`}
       >
         {children}
       </body>
